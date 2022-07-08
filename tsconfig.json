@@ -1,0 +1,6 @@
+{
+  "references": [
+    { "path": "packages/test-contracts" },
+    { "path": "packages/wallet-worker" }
+  ]
+}
