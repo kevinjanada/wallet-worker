@@ -1,5 +1,5 @@
-import TestNFT from "@wallet-worker/test-contracts/artifacts/contracts/TestNFT.sol/TestNFT.json";
-import addresses from "@wallet-worker/test-contracts/config/addresses.json";
+import TestNFT from "test-contracts/artifacts/contracts/TestNFT.sol/TestNFT.json";
+import addresses from "test-contracts/config/addresses.json";
 import { ethers } from "ethers";
 import WalletWorker from './index';
 
