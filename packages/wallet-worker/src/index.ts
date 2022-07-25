@@ -21,12 +21,10 @@ class WalletWorker extends EventEmitter {
   // Use wallet public keys as lock keys
   private _walletPubKeys: PublicKey[] = [];
 
-  public initialized: Promise<boolean>;
-
   private _nextLockKeyIndex = 0;
 
-  private _failedTransactions: Record<PublicKey, Transaction[]> = {};
-  // private _failedTransactions: Transaction[] = [];
+  private _transactionQueue: Record<PublicKey, Transaction[]> = {};
+  // private _transactionQueue: Transaction[] = [];
 
   constructor(privateKeys: string[], provider: ethers.providers.Provider) {
     super();
@@ -45,22 +43,11 @@ class WalletWorker extends EventEmitter {
     }
     // Initialize failed Transactions map 
     for (const [pubKey] of Object.entries(this._wallets)) {
-      this._failedTransactions[pubKey as PublicKey] = [];
+      this._transactionQueue[pubKey as PublicKey] = [];
     }
 
     // Initialize lock
     this._lock = new AsyncLock();
-
-    this.initialized = new Promise(async resolve => {
-      const promises = this._walletPubKeys.map((pubKey: PublicKey) => {
-        return new Promise(async resolve => {
-          this._nonces[pubKey] = await this._wallets[pubKey].getTransactionCount();
-          resolve(true)
-        })
-      })
-      await Promise.all(promises);
-      resolve(true);
-    })
   }
 
   get walletPubKeys() {
@@ -72,7 +59,7 @@ class WalletWorker extends EventEmitter {
   }
 
   get failedTransactions() {
-    return this._failedTransactions;
+    return this._transactionQueue;
   }
 
   async executeTransaction(contract: ethers.Contract, method: string, params: (string | number)[], returnData: unknown) {
@@ -83,13 +70,11 @@ class WalletWorker extends EventEmitter {
 
     return this._lock.acquire(pubKey, async () => {
       const wallet = this.wallets[pubKey];
-
-      // Handle previously failed transactions and new transactions
-      const transactions: Transaction[] = [...this._failedTransactions[pubKey], { method, params, returnData }];
-      this._failedTransactions[pubKey] = []
-
-      for (const tx of transactions) {
-        const { method, params, returnData } = tx;
+      // Add new transaction to the queue
+      this._transactionQueue[pubKey].push({ method, params, returnData });
+      // Handle Transactions in the queue FIFO
+      while (this._transactionQueue[pubKey].length > 0) {
+        const { method, params, returnData } = this._transactionQueue[pubKey].shift() as Transaction;
         // Get current nonce
         let nonce = await this._provider.getTransactionCount(wallet.address);
         this._nonces[pubKey] = this._nonces[pubKey] > nonce ? this._nonces[pubKey] : nonce;
@@ -118,7 +103,8 @@ class WalletWorker extends EventEmitter {
             // Wait for transaction error
             .catch(async (error: any) => {
               await new Promise(resolve => setTimeout(resolve, 1000))
-              this._failedTransactions[pubKey].push({ method, params, returnData })
+              // Add failed transaction to the back of the queue
+              this._transactionQueue[pubKey].push({ method, params, returnData })
               this.emit('error', {
                 error,
                 data: returnData,
@@ -128,7 +114,8 @@ class WalletWorker extends EventEmitter {
         // contract method error
         .catch(async (error: any) => {
           await new Promise(resolve => setTimeout(resolve, 1000))
-          this._failedTransactions[pubKey].push({ method, params, returnData })
+          // Add failed transaction to the back of the queue
+          this._transactionQueue[pubKey].push({ method, params, returnData })
           this.emit('error', {
             error,
             data: returnData,

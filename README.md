@@ -4,3 +4,8 @@
 - [ ] Create error handler. to replace transaction with higher gas
 - [ ] Add backoff ?
 - [ ] Make test script that runs mint NFT from test contract 1000 times
+
+# Run Test
+```
+npx lerna run test --scope=@wallet-worker/wallet-worker
+```

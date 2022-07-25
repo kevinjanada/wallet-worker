@@ -5,8 +5,6 @@ import WalletWorker from './index';
 
 async function main(walletWorker: WalletWorker, numTransactions: number, provider: ethers.providers.JsonRpcProvider) {
   const nftContract = new ethers.Contract(contractAddress, TestNFT.abi, provider);
-  await walletWorker.initialized;
-  // const processedEmails: Record<any, any>[] = []
 
   walletWorker.on('success', function(data: any) {
     const { returnData, tx } = data;
@@ -45,7 +43,6 @@ const provider = new ethers.providers.JsonRpcProvider(process.env.RINKEBY_URL);
 
 const walletWorker = new WalletWorker(privateKeys as string[], provider);
 const NUM_TRANSACTIONS = 20;
-const start = Date.now();
 
 main(walletWorker, NUM_TRANSACTIONS, provider)
   .catch(err => console.log(err))
